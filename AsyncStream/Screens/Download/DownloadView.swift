@@ -19,7 +19,6 @@ struct DownloadView: View {
                 .padding()
                 .navigationTitle("Downloading...")
                 .task {
-                    
                     do {
                         for try await percentage in DownloadAPI.downloadStream() {
                             progress = percentage

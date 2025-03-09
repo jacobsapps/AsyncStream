@@ -7,38 +7,29 @@
 
 import QuartzCore
 
-@MainActor
 extension CADisplayLink {
     static func events(mode: RunLoop.Mode = .default) -> AsyncStream<CADisplayLink> {
         AsyncStream { continuation in
-            let displayLink = DisplayLink(mode: mode) { displayLink in
-                continuation.yield(displayLink)
-            }
-
-            continuation.onTermination = { _ in
-                Task { await displayLink.stop() }
+            let displayLink = CADisplayLink(
+                target: DisplayLinkWrapper(continuation),
+                selector: #selector(DisplayLinkWrapper.tick)
+            )
+            displayLink.add(to: .main, forMode: mode)
+            continuation.onTermination = { @Sendable _ in
+                displayLink.invalidate()
             }
         }
     }
 }
 
-@MainActor
-private final class DisplayLink {
-    private var displayLink: CADisplayLink?
-    private var handler: (CADisplayLink) -> Void
+private final class DisplayLinkWrapper {
+    let continuation: AsyncStream<CADisplayLink>.Continuation
 
-    init(mode: RunLoop.Mode, handler: @escaping (CADisplayLink) -> Void) {
-        self.handler = handler
-        self.displayLink = CADisplayLink(target: self, selector: #selector(update))
-        self.displayLink?.add(to: .main, forMode: mode)
+    init(_ continuation: AsyncStream<CADisplayLink>.Continuation) {
+        self.continuation = continuation
     }
 
-    @objc private func update(displayLink: CADisplayLink) {
-        handler(displayLink)
-    }
-
-    func stop() {
-        displayLink?.invalidate()
-        displayLink = nil
+    @objc func tick(_ displayLink: CADisplayLink) {
+        continuation.yield(displayLink)
     }
 }

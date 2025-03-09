@@ -15,14 +15,9 @@ final class LocationManager: CLLocationManager, CLLocationManagerDelegate {
     private var rotationCallback: ((Double) -> Void)?
     
     var rotationAngleStream: AsyncStream<Double> {
-        AsyncStream { continuation in
-            Task {
-                rotationCallback = {
-                    continuation.yield($0)
-                }
-            }
-            continuation.onTermination = { [weak self] _ in 
-                self?.stop()
+        AsyncStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
+            rotationCallback = {
+                continuation.yield($0)
             }
         }
     }
